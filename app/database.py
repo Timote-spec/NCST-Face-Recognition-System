@@ -36,9 +36,6 @@ def get_db_connection() -> sqlite3.Connection:
 def init_db():
     conn = get_db_connection()
     conn.executescript("""
-        DROP TABLE IF EXISTS attendance_logs;
-        DROP TABLE IF EXISTS students;
-
         CREATE TABLE IF NOT EXISTS admins (
             admin_id                TEXT PRIMARY KEY,
             email                   TEXT UNIQUE NOT NULL,
@@ -50,7 +47,7 @@ def init_db():
             reset_password_expires  TIMESTAMP,
             is_approved             INTEGER NOT NULL DEFAULT 0,
             approval_status         TEXT NOT NULL DEFAULT 'pending'
-                CHECK(approval_status IN ('pending', 'approved', 'rejected'))
+                CHECK(approval_status IN ('pending', 'approved', 'rejected', 'suspended'))
         );
 
         CREATE TABLE IF NOT EXISTS registrants (
@@ -110,6 +107,29 @@ def _migrate_admins(conn: sqlite3.Connection):
         conn.execute(
             "UPDATE admins SET is_approved = 1, approval_status = 'approved'"
         )
+    table_sql = conn.execute(
+        "SELECT sql FROM sqlite_master WHERE type='table' AND name='admins'"
+    ).fetchone()
+    if table_sql and "suspended" not in (table_sql[0] or ""):
+        conn.executescript("""
+            PRAGMA legacy_alter_table=ON;
+            CREATE TABLE admins_v2 (
+                admin_id                TEXT PRIMARY KEY,
+                email                   TEXT UNIQUE NOT NULL,
+                password_hash           TEXT NOT NULL,
+                first_name              TEXT NOT NULL,
+                last_name               TEXT NOT NULL,
+                created_at              TIMESTAMP,
+                reset_password_token    TEXT,
+                reset_password_expires  TIMESTAMP,
+                is_approved             INTEGER NOT NULL DEFAULT 0,
+                approval_status         TEXT NOT NULL DEFAULT 'pending'
+                    CHECK(approval_status IN ('pending','approved','rejected','suspended'))
+            );
+            INSERT INTO admins_v2 SELECT * FROM admins;
+            DROP TABLE admins;
+            ALTER TABLE admins_v2 RENAME TO admins;
+        """)
     conn.commit()
 
 

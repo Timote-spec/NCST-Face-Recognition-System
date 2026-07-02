@@ -288,6 +288,11 @@
 
     if (isAuthenticated()) {
       window.location.replace('/');
+    } else {
+      history.pushState(null, '', location.href);
+      window.addEventListener('popstate', function trap() {
+        history.pushState(null, '', location.href);
+      });
     }
 
     const form = document.getElementById('form-login');

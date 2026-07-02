@@ -53,6 +53,38 @@ class AttendanceLogResponse(BaseModel):
         from_attributes = True
 
 
+class AttendanceLogItem(BaseModel):
+    user_id: str
+    user_name: str
+    logged_at: datetime
+    device_id: str
+    similarity: float
+    status: str = "checked_in"
+
+
+class FaceBbox(BaseModel):
+    x: float
+    y: float
+    width: float
+    height: float
+
+
+class FaceResult(BaseModel):
+    bbox: FaceBbox
+    user_name: str
+    user_id: str | None = None
+    logged_at: datetime | None = None
+    device_id: str | None = None
+    similarity: float | None = None
+    status: str = "unknown"
+
+
+class VerifyAttendanceResponse(BaseModel):
+    faces: list[FaceResult]
+    matched: list[AttendanceLogItem]
+    unmatched_faces: int
+
+
 # ─── Auth / Admin ──────────────────────────────────────────────────
 
 class AdminRegisterRequest(BaseModel):
@@ -161,6 +193,23 @@ class AuditLogRow(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class AdminDetailRow(BaseModel):
+    admin_id: str
+    email: str
+    first_name: str
+    last_name: str
+    approval_status: str
+    is_approved: bool
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class UpdateAdminStatusRequest(BaseModel):
+    approval_status: str
 
 
 class PaginatedResponse(BaseModel):

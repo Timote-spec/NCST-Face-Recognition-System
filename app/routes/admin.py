@@ -5,11 +5,13 @@ from app.config import settings
 from app.database import get_db_connection, get_admin_email, log_system_action, pst_str
 from app.routes.auth import get_current_admin
 from app.schemas import (
+    AdminDetailRow,
     AuditLogRow,
     GenericResponse,
     LogRow,
     PendingAdminRow,
     RegistrantListRow,
+    UpdateAdminStatusRequest,
     UpdateRegistrantRequest,
     VerifyAdminRequest,
 )
@@ -18,6 +20,16 @@ from app.services.face_service import FaceService
 
 router = APIRouter()
 face_service = FaceService()
+
+
+def _require_main_admin(admin_id: str) -> str:
+    email = get_admin_email(admin_id)
+    if not email or email.strip().lower() != settings.main_admin_email.strip().lower():
+        raise HTTPException(
+            status_code=403,
+            detail="Only the main administrator can perform this action.",
+        )
+    return email
 
 
 @router.get("/admin/users/pending", response_model=list[PendingAdminRow])
@@ -118,6 +130,114 @@ def verify_pending_admin(
         f"Rejected admin account {row['email']} ({body.userId})",
     )
     return GenericResponse(status="ok", message=f"Account for {row['email']} has been rejected.")
+
+
+@router.get("/admin/admins", response_model=list[AdminDetailRow])
+def list_all_admins(_admin: str = Depends(get_current_admin)):
+    _require_main_admin(_admin)
+    conn = get_db_connection()
+    rows = conn.execute(
+        """
+        SELECT admin_id, email, first_name, last_name, approval_status, is_approved, created_at
+        FROM admins
+        ORDER BY created_at ASC
+        """
+    ).fetchall()
+    return [
+        AdminDetailRow(
+            admin_id=r["admin_id"],
+            email=r["email"],
+            first_name=r["first_name"],
+            last_name=r["last_name"],
+            approval_status=r["approval_status"],
+            is_approved=bool(r["is_approved"]),
+            created_at=r["created_at"],
+        )
+        for r in rows
+    ]
+
+
+@router.patch("/admin/admins/{admin_id}/status", response_model=GenericResponse)
+def update_admin_status(
+    admin_id: str,
+    body: UpdateAdminStatusRequest,
+    _admin: str = Depends(get_current_admin),
+):
+    acting_email = _require_main_admin(_admin)
+    status = body.approval_status.strip().lower()
+    if status not in ("pending", "approved", "rejected", "suspended"):
+        raise HTTPException(
+            status_code=400,
+            detail="Status must be one of: pending, approved, rejected, suspended",
+        )
+
+    conn = get_db_connection()
+    row = conn.execute(
+        "SELECT admin_id, email, approval_status FROM admins WHERE admin_id = ?",
+        (admin_id,),
+    ).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Admin not found")
+
+    if row["email"].strip().lower() == settings.main_admin_email.strip().lower():
+        raise HTTPException(
+            status_code=403,
+            detail="Cannot change the status of the main administrator.",
+        )
+
+    is_approved = 1 if status == "approved" else 0
+    conn.execute(
+        "UPDATE admins SET approval_status = ?, is_approved = ? WHERE admin_id = ?",
+        (status, is_approved, admin_id),
+    )
+    conn.commit()
+
+    log_system_action(
+        acting_email,
+        "UPDATE_ADMIN_STATUS",
+        f"Changed status of admin {row['email']} ({admin_id}) from {row['approval_status']} to {status}",
+    )
+
+    return GenericResponse(
+        status="ok",
+        message=f"Status for {row['email']} updated to '{status}'.",
+    )
+
+
+@router.delete("/admin/admins/{admin_id}", response_model=GenericResponse)
+def delete_admin(
+    admin_id: str,
+    _admin: str = Depends(get_current_admin),
+):
+    acting_email = _require_main_admin(_admin)
+
+    conn = get_db_connection()
+    row = conn.execute(
+        "SELECT admin_id, email FROM admins WHERE admin_id = ?",
+        (admin_id,),
+    ).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Admin not found")
+
+    if row["email"].strip().lower() == settings.main_admin_email.strip().lower():
+        raise HTTPException(
+            status_code=403,
+            detail="Cannot delete the main administrator account.",
+        )
+
+    conn.execute("DELETE FROM admins WHERE admin_id = ?", (admin_id,))
+    conn.commit()
+
+    log_system_action(
+        acting_email,
+        "DELETE_ADMIN",
+        f"Deleted admin account {row['email']} ({admin_id})",
+    )
+
+    return GenericResponse(
+        status="ok",
+        message=f"Admin account {row['email']} has been deleted.",
+    )
 
 
 @router.get("/admin/users", response_model=list[RegistrantListRow])
