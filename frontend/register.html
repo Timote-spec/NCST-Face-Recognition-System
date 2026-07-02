@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NCST Face Recognition — Create Admin Account</title>
+  <style>
+    :root {
+      --ncst-navy: #0a2463;
+      --ncst-navy-light: #1e3a7a;
+      --ncst-yellow: #ffd100;
+      --ncst-text: #0a2463;
+      --ncst-muted: #5a6b8c;
+      --ncst-border: #c5cfe0;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    }
+
+    body {
+      background: var(--ncst-navy);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 1.5rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    body::before,
+    body::after {
+      content: '';
+      position: absolute;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.04);
+      pointer-events: none;
+    }
+
+    body::before {
+      width: 420px;
+      height: 420px;
+      top: -120px;
+      left: -100px;
+    }
+
+    body::after {
+      width: 520px;
+      height: 520px;
+      bottom: -180px;
+      right: -140px;
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .card {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 440px;
+      background: #fff;
+      border-radius: 12px;
+      padding: 2.5rem 2.25rem 2rem;
+      box-shadow: 0 24px 64px rgba(0, 0, 0, 0.35);
+      border-top: 4px solid var(--ncst-yellow);
+      border-bottom: 4px solid var(--ncst-yellow);
+    }
+
+    .logo-wrap {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 1.25rem;
+    }
+
+    .logo-wrap img {
+      width: 120px;
+      height: auto;
+      object-fit: contain;
+    }
+
+    .title {
+      text-align: center;
+      font-size: 1.375rem;
+      font-weight: 700;
+      color: var(--ncst-text);
+      margin-bottom: 0.375rem;
+    }
+
+    .subtitle {
+      text-align: center;
+      font-size: 0.875rem;
+      color: var(--ncst-muted);
+      margin-bottom: 1.75rem;
+    }
+
+    .banner {
+      display: none;
+      font-size: 0.8125rem;
+      padding: 0.625rem 0.875rem;
+      border-radius: 6px;
+      margin-bottom: 1rem;
+    }
+
+    .banner.show { display: block; }
+    .banner.error { background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; }
+    .banner.success { background: #ecfdf5; border: 1px solid #a7f3d0; color: #047857; }
+
+    .panel { display: block; }
+    .panel.hidden { display: none; }
+
+    .field { margin-bottom: 1.125rem; }
+
+    .field label {
+      display: block;
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--ncst-text);
+      margin-bottom: 0.375rem;
+    }
+
+    .field input {
+      width: 100%;
+      padding: 0.625rem 0.875rem;
+      border: 1.5px solid var(--ncst-border);
+      border-radius: 8px;
+      font-size: 0.9375rem;
+      color: var(--ncst-text);
+      background: #fff;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+
+    .field input::placeholder { color: #94a3b8; }
+
+    .field input:focus {
+      outline: none;
+      border-color: var(--ncst-navy);
+      box-shadow: 0 0 0 3px rgba(10, 36, 99, 0.12);
+    }
+
+    .field-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+    }
+
+    .hint {
+      font-size: 0.75rem;
+      color: var(--ncst-muted);
+      margin-top: 0.375rem;
+    }
+
+    .btn {
+      width: 100%;
+      margin-top: 0.5rem;
+      padding: 0.75rem;
+      background: var(--ncst-navy);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.9375rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s;
+    }
+
+    .btn:hover:not(:disabled) { background: var(--ncst-navy-light); }
+    .btn:active:not(:disabled) { transform: scale(0.99); }
+    .btn:disabled { opacity: 0.65; cursor: not-allowed; }
+
+    .back-link {
+      display: block;
+      text-align: center;
+      margin-top: 1.25rem;
+      font-size: 0.8125rem;
+      color: var(--ncst-navy);
+      text-decoration: none;
+    }
+
+    .back-link:hover { text-decoration: underline; }
+
+    .success-panel {
+      text-align: center;
+      padding: 0.5rem 0;
+    }
+
+    .success-panel p {
+      font-size: 0.9375rem;
+      color: var(--ncst-text);
+      line-height: 1.6;
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 1rem;
+      height: 1rem;
+      border: 2px solid rgba(255,255,255,.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin .6s linear infinite;
+      vertical-align: middle;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo-wrap">
+      <img src="/static/images/ncst-logo.png" alt="NCST Logo">
+    </div>
+    <h1 class="title">Create Admin Account</h1>
+    <p class="subtitle">Submit your details for administrator approval</p>
+
+    <div id="banner" class="banner" role="alert"></div>
+
+    <div id="panel-form" class="panel">
+      <form id="form-register" novalidate>
+        <div class="field-row">
+          <div class="field">
+            <label for="first-name">First name</label>
+            <input type="text" id="first-name" name="first_name" required autocomplete="given-name">
+          </div>
+          <div class="field">
+            <label for="last-name">Last name</label>
+            <input type="text" id="last-name" name="last_name" required autocomplete="family-name">
+          </div>
+        </div>
+        <div class="field">
+          <label for="email">Email address</label>
+          <input type="email" id="email" name="email" required autocomplete="email"
+            placeholder="Enter your email">
+        </div>
+        <div class="field">
+          <label for="password">Password</label>
+          <input type="password" id="password" name="password" required minlength="6"
+            autocomplete="new-password" placeholder="At least 6 characters">
+        </div>
+        <button type="submit" class="btn" id="btn-register">Submit registration</button>
+      </form>
+    </div>
+
+    <div id="panel-success" class="panel hidden success-panel">
+      <p id="success-message"></p>
+      <a href="/login" class="btn" style="display:inline-block;text-decoration:none;margin-top:1.25rem;">Back to sign in</a>
+    </div>
+
+    <a href="/login" id="back-link" class="back-link">Back to sign in</a>
+  </div>
+
+  <script>
+    const API_BASE = '/api/v1';
+
+    const banner = document.getElementById('banner');
+    const form = document.getElementById('form-register');
+    const panelForm = document.getElementById('panel-form');
+    const panelSuccess = document.getElementById('panel-success');
+    const successMessage = document.getElementById('success-message');
+    const backLink = document.getElementById('back-link');
+    const btn = document.getElementById('btn-register');
+
+    function showBanner(message, type) {
+      banner.textContent = message;
+      banner.className = 'banner show ' + type;
+    }
+
+    function hideBanner() {
+      banner.className = 'banner';
+      banner.textContent = '';
+    }
+
+    function setLoading(loading) {
+      if (loading) {
+        btn.disabled = true;
+        btn.dataset.origText = btn.textContent;
+        btn.innerHTML = '<span class="spinner"></span>';
+      } else {
+        btn.disabled = false;
+        btn.textContent = btn.dataset.origText || 'Submit registration';
+      }
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      hideBanner();
+
+      const firstName = document.getElementById('first-name').value.trim();
+      const lastName = document.getElementById('last-name').value.trim();
+      const email = document.getElementById('email').value.trim().toLowerCase();
+      const password = document.getElementById('password').value;
+
+      if (!firstName || !lastName) {
+        showBanner('Please enter your first and last name.', 'error');
+        return;
+      }
+      if (!email) {
+        showBanner('Please enter your email address.', 'error');
+        return;
+      }
+      if (password.length < 6) {
+        showBanner('Password must be at least 6 characters.', 'error');
+        return;
+      }
+
+      setLoading(true);
+      try {
+        const res = await fetch(API_BASE + '/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            admin_id: 'admin_' + Date.now(),
+            email,
+            first_name: firstName,
+            last_name: lastName,
+            password
+          })
+        });
+        const data = await res.json().catch(() => null);
+        if (!res.ok) throw new Error(data?.detail || 'Failed to submit registration');
+
+        panelForm.classList.add('hidden');
+        backLink.classList.add('hidden');
+        panelSuccess.classList.remove('hidden');
+        successMessage.textContent = data.message ||
+          'Registration submitted successfully! Please wait for an administrator to verify and approve your account.';
+      } catch (err) {
+        showBanner(err.message, 'error');
+        setLoading(false);
+      }
+    });
+  </script>
+</body>
+</html>
