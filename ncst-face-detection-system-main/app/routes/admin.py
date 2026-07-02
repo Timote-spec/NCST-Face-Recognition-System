@@ -1,0 +1,256 @@
+import numpy as np
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
+
+from app.database import get_db_connection, get_admin_email, log_system_action, pst_str
+from app.routes.auth import get_current_admin
+from app.schemas import AuditLogRow, GenericResponse, LogRow, RegistrantListRow, UpdateRegistrantRequest
+from app.services.face_service import FaceService
+
+router = APIRouter()
+face_service = FaceService()
+
+
+@router.get("/admin/users", response_model=list[RegistrantListRow])
+def list_users(
+    role: str | None = Query(None, regex="^(STUDENT|STAFF|FACULTY)$"),
+    status: str | None = Query(None, regex="^(ACTIVE|ARCHIVED)$"),
+    _admin: str = Depends(get_current_admin),
+):
+    conn = get_db_connection()
+    sql = "SELECT user_id, first_name, last_name, role, department_section, status, created_at FROM registrants WHERE 1=1"
+    params = []
+
+    if role:
+        sql += " AND role = ?"
+        params.append(role)
+    if status:
+        sql += " AND status = ?"
+        params.append(status)
+
+    sql += " ORDER BY created_at DESC"
+    rows = conn.execute(sql, params).fetchall()
+
+    return [
+        RegistrantListRow(
+            user_id=r["user_id"],
+            first_name=r["first_name"],
+            last_name=r["last_name"],
+            role=r["role"],
+            department_section=r["department_section"],
+            status=r["status"],
+            created_at=r["created_at"],
+        )
+        for r in rows
+    ]
+
+
+@router.put("/admin/users/{user_id}/status", response_model=RegistrantListRow)
+def toggle_user_status(
+    user_id: str,
+    _admin: str = Depends(get_current_admin),
+):
+    conn = get_db_connection()
+    row = conn.execute(
+        "SELECT user_id, first_name, last_name, role, department_section, status, created_at FROM registrants WHERE user_id = ?",
+        (user_id,),
+    ).fetchone()
+
+    if not row:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    new_status = "ARCHIVED" if row["status"] == "ACTIVE" else "ACTIVE"
+    conn.execute("UPDATE registrants SET status = ? WHERE user_id = ?", (new_status, user_id))
+    conn.commit()
+
+    admin_email = get_admin_email(_admin)
+    log_system_action(
+        admin_email,
+        "TOGGLE_STATUS",
+        f"Changed user {user_id} status from {row['status']} to {new_status}",
+    )
+
+    updated = conn.execute(
+        "SELECT user_id, first_name, last_name, role, department_section, status, created_at FROM registrants WHERE user_id = ?",
+        (user_id,),
+    ).fetchone()
+
+    return RegistrantListRow(
+        user_id=updated["user_id"],
+        first_name=updated["first_name"],
+        last_name=updated["last_name"],
+        role=updated["role"],
+        department_section=updated["department_section"],
+        status=updated["status"],
+        created_at=updated["created_at"],
+    )
+
+
+@router.get("/admin/logs")
+def list_logs(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=200),
+    date_from: str | None = Query(None),
+    date_to: str | None = Query(None),
+    search: str | None = Query(None),
+    _admin: str = Depends(get_current_admin),
+):
+    conn = get_db_connection()
+
+    base_sql = """FROM attendance_logs a
+                   JOIN registrants r ON r.user_id = a.user_id
+                  WHERE 1=1"""
+    params = []
+
+    if date_from:
+        base_sql += " AND a.logged_at >= ?"
+        params.append(date_from)
+    if date_to:
+        base_sql += " AND a.logged_at <= ?"
+        params.append(date_to + " 23:59:59" if len(date_to) == 10 else date_to)
+    if search:
+        base_sql += " AND (r.first_name LIKE ? OR r.last_name LIKE ? OR r.user_id LIKE ?)"
+        like = f"%{search}%"
+        params.extend([like, like, like])
+
+    total = conn.execute(f"SELECT COUNT(*) {base_sql}", params).fetchone()[0]
+
+    offset = (page - 1) * page_size
+    rows = conn.execute(
+        f"""SELECT a.log_id, a.user_id, r.first_name, r.last_name, r.role, r.department_section, a.logged_at, a.device_id
+               {base_sql}
+            ORDER BY a.logged_at DESC
+            LIMIT ? OFFSET ?""",
+        params + [page_size, offset],
+    ).fetchall()
+
+    return {
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "items": [
+            LogRow(
+                log_id=r["log_id"],
+                user_id=r["user_id"],
+                first_name=r["first_name"],
+                last_name=r["last_name"],
+                role=r["role"],
+                department_section=r["department_section"],
+                logged_at=r["logged_at"],
+                device_id=r["device_id"],
+            )
+            for r in rows
+        ],
+    }
+
+
+@router.put("/admin/users/{user_id}", response_model=RegistrantListRow)
+def update_registrant(
+    user_id: str,
+    body: UpdateRegistrantRequest,
+    _admin: str = Depends(get_current_admin),
+):
+    if body.role not in ("STUDENT", "STAFF", "FACULTY"):
+        raise HTTPException(status_code=400, detail="Role must be STUDENT, STAFF, or FACULTY")
+
+    conn = get_db_connection()
+    row = conn.execute(
+        "SELECT user_id, first_name, last_name, role, department_section, status, created_at FROM registrants WHERE user_id = ?",
+        (user_id,),
+    ).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    conn.execute(
+        "UPDATE registrants SET first_name = ?, last_name = ?, role = ?, department_section = ? WHERE user_id = ?",
+        (body.first_name, body.last_name, body.role, body.department_section, user_id),
+    )
+    conn.commit()
+
+    admin_email = get_admin_email(_admin)
+    log_system_action(
+        admin_email,
+        "UPDATE_REGISTRANT",
+        f"Updated user {user_id}: name={body.first_name} {body.last_name}, role={body.role}, dept={body.department_section}",
+    )
+
+    updated = conn.execute(
+        "SELECT user_id, first_name, last_name, role, department_section, status, created_at FROM registrants WHERE user_id = ?",
+        (user_id,),
+    ).fetchone()
+
+    return RegistrantListRow(
+        user_id=updated["user_id"],
+        first_name=updated["first_name"],
+        last_name=updated["last_name"],
+        role=updated["role"],
+        department_section=updated["department_section"],
+        status=updated["status"],
+        created_at=updated["created_at"],
+    )
+
+
+@router.post("/admin/users/{user_id}/re-enroll", response_model=GenericResponse)
+async def reenroll_registrant(
+    user_id: str,
+    image: UploadFile = File(...),
+    _admin: str = Depends(get_current_admin),
+):
+    conn = get_db_connection()
+    row = conn.execute(
+        "SELECT user_id FROM registrants WHERE user_id = ?", (user_id,)
+    ).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    image_bytes = await image.read()
+    try:
+        embedding = await face_service.extract_embedding(image_bytes)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    embedding_blob = np.array(embedding, dtype=np.float32).tobytes()
+    conn.execute(
+        "UPDATE registrants SET face_embedding = ? WHERE user_id = ?",
+        (embedding_blob, user_id),
+    )
+    conn.commit()
+
+    admin_email = get_admin_email(_admin)
+    log_system_action(
+        admin_email,
+        "RE_ENROLL",
+        f"Re-enrolled face embedding for user {user_id}",
+    )
+
+    return GenericResponse(status="ok", message=f"Face re-enrolled for {user_id}")
+
+
+@router.get("/admin/audit-logs")
+def list_audit_logs(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=200),
+    _admin: str = Depends(get_current_admin),
+):
+    conn = get_db_connection()
+    total = conn.execute("SELECT COUNT(*) FROM audit_logs").fetchone()[0]
+    offset = (page - 1) * page_size
+    rows = conn.execute(
+        "SELECT log_id, admin_email, action, details, logged_at FROM audit_logs ORDER BY logged_at DESC LIMIT ? OFFSET ?",
+        (page_size, offset),
+    ).fetchall()
+
+    return {
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "items": [
+            AuditLogRow(
+                log_id=r["log_id"],
+                admin_email=r["admin_email"],
+                action=r["action"],
+                details=r["details"],
+                logged_at=r["logged_at"],
+            )
+            for r in rows
+        ],
+    }
