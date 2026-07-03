@@ -483,29 +483,18 @@
      function forgotPasswordView() {
        return splitLayout(`
          <h2 class="text-lg font-semibold text-slate-900 tracking-tight mb-1">Reset password</h2>
-         <p class="text-sm text-slate-500 mb-6">Enter your admin recovery key and choose a new password.</p>
+         <p class="text-sm text-slate-500 mb-6">Enter your email and we'll send you a secure reset link.</p>
          <div id="forgot-banner" class="hidden text-sm px-3 py-2 rounded mb-4 border"></div>
          <form id="form-forgot" novalidate class="space-y-4">
            <div>
-             <label class="block text-sm font-medium text-slate-700 mb-1">Email</label>
+             <label class="block text-sm font-medium text-slate-700 mb-1">Email address</label>
              <input type="email" name="email" required
-               class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ncst focus:border-ncst-navy bg-white transition-colors">
+               class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ncst focus:border-ncst-navy bg-white transition-colors"
+               placeholder="you@example.com">
              <p class="error-msg text-xs text-red-600 mt-1">Please enter a valid email address.</p>
            </div>
-           <div>
-             <label class="block text-sm font-medium text-slate-700 mb-1">Recovery Key</label>
-             <input type="text" name="recovery_key" required
-               class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ncst focus:border-ncst-navy bg-white">
-             <p class="error-msg text-xs text-red-600 mt-1">Recovery key is required.</p>
-           </div>
-           <div>
-             <label class="block text-sm font-medium text-slate-700 mb-1">New Password</label>
-             <input type="password" name="new_password" required minlength="6"
-               class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ncst focus:border-ncst-navy bg-white transition-colors">
-             <p class="error-msg text-xs text-red-600 mt-1">Password must be at least 6 characters.</p>
-           </div>
            <button type="submit"
-             class="w-full bg-ncst-navy text-white rounded px-3 py-2 text-sm font-medium hover:bg-ncst-navy-light transition-colors focus:outline-none focus:ring-2 focus:ring-ncst disabled:opacity-60">Reset Password</button>
+             class="w-full bg-ncst-navy text-white rounded px-3 py-2 text-sm font-medium hover:bg-ncst-navy-light transition-colors focus:outline-none focus:ring-2 focus:ring-ncst disabled:opacity-60">Send reset link</button>
          </form>
          <div class="mt-4 text-center text-sm text-slate-500">
            <a href="/login" class="text-ncst-navy hover:underline">Back to sign in</a>
@@ -528,13 +517,12 @@
            await api('/auth/forgot-password', {
              method: 'POST',
              body: JSON.stringify({
-               email: fd.get('email'),
-               recovery_key: fd.get('recovery_key'),
-               new_password: fd.get('new_password')
+               email: fd.get('email')
              })
            });
-           showFormError(banner, 'Password has been reset successfully. Please sign in.');
+           showFormError(banner, 'If an account exists with that email, a password reset link has been sent.', 'success');
            banner.className = 'text-sm px-3 py-2 rounded mb-4 border bg-emerald-50 border-emerald-200 text-emerald-700';
+           form.reset();
          } catch (err) {
            if (err.message !== 'Session expired') {
              showFormError(banner, err.message);
@@ -710,16 +698,61 @@
         c.width = video.videoWidth || 640;
         c.height = video.videoHeight || 480;
         c.getContext('2d').drawImage(video, 0, 0);
+        
+        var captureTimeout = null;
+        var timedOut = false;
+        
         try {
-          var blob = await new Promise(function(resolve) {
+          // Add timeout to prevent infinite loading
+          var timeoutPromise = new Promise(function(resolve) {
+            captureTimeout = setTimeout(function() {
+              timedOut = true;
+              resolve(null);
+            }, 15000); // 15 second timeout
+          });
+          
+          var blobPromise = new Promise(function(resolve) {
             c.toBlob(function(b) { resolve(b); }, 'image/jpeg', 0.85);
           });
-          if (!blob) throw new Error('Failed to encode frame');
+          
+          var blob = await Promise.race([blobPromise, timeoutPromise]);
+          
+          if (timedOut || !blob) {
+            clearTimeout(captureTimeout);
+            throw new Error('Scan timed out. Please try again.');
+          }
+          
           var fd = new FormData();
           fd.append('device_id', 'terminal-01');
           fd.append('image', blob, 'scan.jpg');
-          var res = await fetch(API_BASE + '/verify', { method: 'POST', body: fd });
-          var data = res.headers.get('content-type')?.includes('application/json') ? await res.json() : null;
+          
+          // Add network timeout
+          var networkTimeout = null;
+          var networkTimedOut = false;
+          
+          var fetchPromise = fetch(API_BASE + '/verify', { method: 'POST', body: fd });
+          var timeoutPromise2 = new Promise(function(resolve) {
+            networkTimeout = setTimeout(function() {
+              networkTimedOut = true;
+              resolve(new Response(null, { status: 408, statusText: 'Request Timeout' }));
+            }, 20000); // 20 second network timeout
+          });
+          
+          var res = await Promise.race([fetchPromise, timeoutPromise2]);
+          clearTimeout(networkTimeout);
+          
+          if (networkTimedOut) {
+            throw new Error('Network request timed out. Please check your connection and try again.');
+          }
+          
+          var data = null;
+          try {
+            data = res.headers.get('content-type')?.includes('application/json') ? await res.json() : null;
+          } catch (jsonErr) {
+            console.log('[Scanner] Failed to parse JSON response');
+            data = null;
+          }
+          
           if (!res.ok) {
             clearFaceBoxes();
             console.log('[Scanner] Error: HTTP ' + res.status + ' - ' + (data?.detail || 'unknown'));
@@ -738,8 +771,10 @@
         } catch (err) {
           clearFaceBoxes();
           console.log('[Scanner] Error encountered: ' + err.message);
-          if (!autoScan) showErrorResult({ message: err.message });
+          if (!autoScan) showErrorResult({ message: err.message || 'An error occurred during scanning' });
           scheduleNextScan(SCAN_ERROR_DELAY);
+        } finally {
+          if (captureTimeout) clearTimeout(captureTimeout);
         }
         isProcessing = false;
         scanning = false;
@@ -2321,16 +2356,61 @@
         c.width = video.videoWidth || 640;
         c.height = video.videoHeight || 480;
         c.getContext('2d').drawImage(video, 0, 0);
+        
+        var captureTimeout = null;
+        var timedOut = false;
+        
         try {
-          var blob = await new Promise(function(resolve) {
+          // Add timeout to prevent infinite loading
+          var timeoutPromise = new Promise(function(resolve) {
+            captureTimeout = setTimeout(function() {
+              timedOut = true;
+              resolve(null);
+            }, 15000); // 15 second timeout
+          });
+          
+          var blobPromise = new Promise(function(resolve) {
             c.toBlob(function(b) { resolve(b); }, 'image/jpeg', 0.85);
           });
-          if (!blob) throw new Error('Failed to encode frame');
+          
+          var blob = await Promise.race([blobPromise, timeoutPromise]);
+          
+          if (timedOut || !blob) {
+            clearTimeout(captureTimeout);
+            throw new Error('Scan timed out. Please try again.');
+          }
+          
           var fd = new FormData();
           fd.append('device_id', 'dash-scanner-01');
           fd.append('image', blob, 'scan.jpg');
-          var res = await fetch(API_BASE + '/verify', { method: 'POST', body: fd });
-          var data = res.headers.get('content-type')?.includes('application/json') ? await res.json() : null;
+          
+          // Add network timeout
+          var networkTimeout = null;
+          var networkTimedOut = false;
+          
+          var fetchPromise = fetch(API_BASE + '/verify', { method: 'POST', body: fd });
+          var timeoutPromise2 = new Promise(function(resolve) {
+            networkTimeout = setTimeout(function() {
+              networkTimedOut = true;
+              resolve(new Response(null, { status: 408, statusText: 'Request Timeout' }));
+            }, 20000); // 20 second network timeout
+          });
+          
+          var res = await Promise.race([fetchPromise, timeoutPromise2]);
+          clearTimeout(networkTimeout);
+          
+          if (networkTimedOut) {
+            throw new Error('Network request timed out. Please check your connection and try again.');
+          }
+          
+          var data = null;
+          try {
+            data = res.headers.get('content-type')?.includes('application/json') ? await res.json() : null;
+          } catch (jsonErr) {
+            console.log('[DashScanner] Failed to parse JSON response');
+            data = null;
+          }
+          
           if (!res.ok) {
             dashClearFaceBoxes();
             console.log('[DashScanner] Error: HTTP ' + res.status + ' - ' + (data?.detail || 'unknown'));
@@ -2349,8 +2429,10 @@
         } catch (err) {
           dashClearFaceBoxes();
           console.log('[DashScanner] Error encountered: ' + err.message);
-          if (!_dashAutoScan) dashPushResult({ message: err.message }, true);
+          if (!_dashAutoScan) dashPushResult({ message: err.message || 'An error occurred during scanning' }, true);
           dashScheduleNext(DASH_SCAN_ERROR_DELAY);
+        } finally {
+          if (captureTimeout) clearTimeout(captureTimeout);
         }
         dashIsProcessing = false;
         _dashScanning = false;
