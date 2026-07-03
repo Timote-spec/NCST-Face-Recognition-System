@@ -817,11 +817,14 @@
       }
 
       var startCamHandler = async function() {
+        console.log('[Terminal] Start camera clicked');
         try {
           if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
             throw new Error('getUserMedia not supported');
           }
+          console.log('[Terminal] Requesting camera access...');
           stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480, facingMode: 'user' } });
+          console.log('[Terminal] Camera access granted');
           __activeStream = stream;
           video.srcObject = stream;
           video.classList.remove('hidden');
@@ -829,7 +832,9 @@
           scanBtn.disabled = false;
           bracket.style.display = 'block';
           refreshStatus();
+          console.log('[Terminal] Camera started successfully');
         } catch (err) {
+          console.error('[Terminal] Camera error:', err);
           var msg = !window.isSecureContext
             ? 'Webcam access blocked: insecure context. Please use HTTPS or localhost.'
             : err.name === 'NotAllowedError'
@@ -846,7 +851,10 @@
       };
       document.getElementById('btn-start-cam')?.addEventListener('click', startCamHandler);
 
-      scanBtn.addEventListener('click', doCapture);
+      scanBtn.addEventListener('click', async () => {
+        console.log('[Terminal] Scan button clicked');
+        await doCapture();
+      });
 
       autoLabel?.addEventListener('click', function(e) {
         e.preventDefault();
