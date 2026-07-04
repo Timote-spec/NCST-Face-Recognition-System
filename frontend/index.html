@@ -46,6 +46,8 @@
     .was-validated input:invalid ~ .error-msg { display: block; }
 
     .toggle-track { width: 2.25rem; height: 1.25rem; background: #cbd5e1; border-radius: 999px; transition: background .2s; position: relative; cursor: pointer; flex-shrink: 0; }
+    .toggle-track:hover { opacity: 0.85; }
+    .toggle-track:active { opacity: 0.7; }
     .toggle-track.active { background: var(--ncst-navy); }
     .toggle-thumb { position: absolute; top: 0.125rem; left: 0.125rem; width: 1rem; height: 1rem; background: #fff; border-radius: 50%; box-shadow: 0 1px 3px rgba(0,0,0,.15); transition: transform .2s; }
     .toggle-track.active .toggle-thumb { transform: translateX(1rem); }
@@ -61,9 +63,11 @@
 
     .modal-backdrop { position: fixed; inset: 0; background: rgba(10,36,99,.55); z-index: 50; display: flex; align-items: center; justify-content: center; padding: 1rem; }
     .modal-card { background: #fff; border-radius: .5rem; width: 100%; max-width: 32rem; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,.15); border-top: 3px solid var(--ncst-yellow); }
+    .modal-card button { cursor: pointer; }
 
-    .sidebar-item { display: flex; align-items: center; gap: .75rem; padding: .5rem .75rem; border-radius: .375rem; font-size: .875rem; color: rgba(255,255,255,.75); transition: background .15s, color .15s; cursor: pointer; }
-    .sidebar-item:hover { background: rgba(255,255,255,.1); color: #fff; }
+    .sidebar-item { display: flex; align-items: center; gap: .75rem; padding: .5rem .75rem; border-radius: .375rem; font-size: .875rem; color: rgba(255,255,255,.75); transition: background .15s, color .15s, transform .15s; cursor: pointer; }
+    .sidebar-item:hover { background: rgba(255,255,255,.1); color: #fff; transform: translateX(2px); }
+    .sidebar-item:active { transform: translateX(0); opacity: 0.85; }
     .sidebar-item.active { background: var(--ncst-yellow); color: var(--ncst-navy); font-weight: 600; }
 
     .badge { display: inline-flex; align-items: center; padding: .125rem .5rem; border-radius: 999px; font-size: .75rem; font-weight: 500; line-height: 1.25rem; }
@@ -73,13 +77,15 @@
     .badge-active { background: #d1fae5; color: #047857; }
     .badge-archived { background: #f1f5f9; color: #64748b; }
 
-    .pagination-btn { padding: .375rem .75rem; border: 1px solid #e2e8f0; border-radius: .375rem; font-size: .8125rem; color: #475569; background: #fff; transition: background .15s, color .15s; }
-    .pagination-btn:hover:not(:disabled) { background: var(--ncst-navy-muted); color: var(--ncst-navy); }
+    .pagination-btn { padding: .375rem .75rem; border: 1px solid #e2e8f0; border-radius: .375rem; font-size: .8125rem; color: #475569; background: #fff; transition: background .15s, color .15s, transform .15s; cursor: pointer; }
+    .pagination-btn:hover:not(:disabled) { background: var(--ncst-navy-muted); color: var(--ncst-navy); transform: scale(1.02); }
+    .pagination-btn:active:not(:disabled) { transform: scale(1); opacity: 0.85; }
     .pagination-btn:disabled { opacity: .4; cursor: not-allowed; }
     .pagination-btn.active { background: var(--ncst-navy); color: #fff; border-color: var(--ncst-navy); }
 
-    .btn-action { display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem; min-width: 5.5rem; padding: 0.7rem 1rem; border-radius: 0.65rem; font-size: 0.8rem; font-weight: 600; text-decoration: none; transition: background 0.15s ease, transform 0.15s ease; }
+    .btn-action { display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem; min-width: 5.5rem; padding: 0.7rem 1rem; border-radius: 0.65rem; font-size: 0.8rem; font-weight: 600; text-decoration: none; transition: background 0.15s ease, transform 0.15s ease, opacity 0.15s ease; cursor: pointer; }
     .btn-action:hover { transform: translateY(-1px); }
+    .btn-action:active { transform: translateY(0); opacity: 0.85; }
     .btn-approve { background: #16a34a; color: #fff; border: 1px solid transparent; }
     .btn-approve:hover { background: #15803d; }
     .btn-reject { background: #dc2626; color: #fff; border: 1px solid transparent; }
@@ -100,7 +106,9 @@
     .hover\:bg-ncst-muted:hover { background-color: var(--ncst-navy-muted); }
     .focus\:ring-ncst:focus { outline: none; box-shadow: 0 0 0 2px rgba(10,36,99,.25); }
 
-    .stat-card { border: 1px solid #e2e8f0; border-radius: .5rem; background: #fff; padding: 1rem; border-left: 4px solid var(--ncst-yellow); }
+    .stat-card { border: 1px solid #e2e8f0; border-radius: .5rem; background: #fff; padding: 1rem; border-left: 4px solid var(--ncst-yellow); transition: box-shadow 0.2s ease, transform 0.2s ease; cursor: pointer; }
+    .stat-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); transform: translateY(-2px); }
+    .stat-card:active { transform: translateY(0); }
     .panel-card { border: 1px solid #e2e8f0; border-radius: .5rem; background: #fff; }
 
     @media (max-width: 1023px) {
@@ -475,29 +483,18 @@
      function forgotPasswordView() {
        return splitLayout(`
          <h2 class="text-lg font-semibold text-slate-900 tracking-tight mb-1">Reset password</h2>
-         <p class="text-sm text-slate-500 mb-6">Enter your admin recovery key and choose a new password.</p>
+         <p class="text-sm text-slate-500 mb-6">Enter your email and we'll send you a secure reset link.</p>
          <div id="forgot-banner" class="hidden text-sm px-3 py-2 rounded mb-4 border"></div>
          <form id="form-forgot" novalidate class="space-y-4">
            <div>
-             <label class="block text-sm font-medium text-slate-700 mb-1">Email</label>
+             <label class="block text-sm font-medium text-slate-700 mb-1">Email address</label>
              <input type="email" name="email" required
-               class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ncst focus:border-ncst-navy bg-white transition-colors">
+               class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ncst focus:border-ncst-navy bg-white transition-colors"
+               placeholder="you@example.com">
              <p class="error-msg text-xs text-red-600 mt-1">Please enter a valid email address.</p>
            </div>
-           <div>
-             <label class="block text-sm font-medium text-slate-700 mb-1">Recovery Key</label>
-             <input type="text" name="recovery_key" required
-               class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ncst focus:border-ncst-navy bg-white">
-             <p class="error-msg text-xs text-red-600 mt-1">Recovery key is required.</p>
-           </div>
-           <div>
-             <label class="block text-sm font-medium text-slate-700 mb-1">New Password</label>
-             <input type="password" name="new_password" required minlength="6"
-               class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ncst focus:border-ncst-navy bg-white transition-colors">
-             <p class="error-msg text-xs text-red-600 mt-1">Password must be at least 6 characters.</p>
-           </div>
            <button type="submit"
-             class="w-full bg-ncst-navy text-white rounded px-3 py-2 text-sm font-medium hover:bg-ncst-navy-light transition-colors focus:outline-none focus:ring-2 focus:ring-ncst disabled:opacity-60">Reset Password</button>
+             class="w-full bg-ncst-navy text-white rounded px-3 py-2 text-sm font-medium hover:bg-ncst-navy-light transition-colors focus:outline-none focus:ring-2 focus:ring-ncst disabled:opacity-60">Send reset link</button>
          </form>
          <div class="mt-4 text-center text-sm text-slate-500">
            <a href="/login" class="text-ncst-navy hover:underline">Back to sign in</a>
@@ -520,13 +517,12 @@
            await api('/auth/forgot-password', {
              method: 'POST',
              body: JSON.stringify({
-               email: fd.get('email'),
-               recovery_key: fd.get('recovery_key'),
-               new_password: fd.get('new_password')
+               email: fd.get('email')
              })
            });
-           showFormError(banner, 'Password has been reset successfully. Please sign in.');
+           showFormError(banner, 'If an account exists with that email, a password reset link has been sent.', 'success');
            banner.className = 'text-sm px-3 py-2 rounded mb-4 border bg-emerald-50 border-emerald-200 text-emerald-700';
+           form.reset();
          } catch (err) {
            if (err.message !== 'Session expired') {
              showFormError(banner, err.message);
@@ -553,27 +549,27 @@
         </nav>
         <div class="flex-1 flex flex-col items-center justify-center px-4 py-8 bg-gray-50">
           <div class="w-full max-w-lg">
-            <div class="text-center mb-5">
-              <p id="term-status" class="text-sm text-slate-500">Camera inactive &mdash; press Start to begin</p>
+            <div class="text-center mb-6">
+              <p id="term-status" class="text-sm font-medium text-slate-600">Camera inactive &mdash; press Start to begin</p>
             </div>
-            <div id="cam-container" class="relative bg-black rounded overflow-hidden aspect-[4/3] flex items-center justify-center">
+            <div id="cam-container" class="relative bg-black rounded-lg overflow-hidden aspect-[4/3] flex items-center justify-center shadow-2xl border-4 border-ncst-yellow">
               <video id="term-video" autoplay playsinline class="w-full h-full object-cover hidden"></video>
               <canvas id="term-overlay" class="absolute inset-0 w-full h-full pointer-events-none hidden"></canvas>
-              <div id="term-placeholder" class="text-center p-6">
-                <button id="btn-start-cam" class="px-6 py-2.5 bg-ncst-navy text-white rounded text-sm font-medium hover:bg-ncst-navy-light transition-colors">Start Camera</button>
+              <div id="term-placeholder" class="text-center p-8">
+                <button id="btn-start-cam" class="px-8 py-3 bg-ncst-navy text-white rounded-lg text-sm font-semibold hover:bg-ncst-navy-light transition-all shadow-lg hover:shadow-xl hover:scale-105">Start Camera</button>
               </div>
               <div class="cam-bracket" id="cam-bracket"><div class="bl"></div><div class="br"></div></div>
               <div id="scan-overlay" class="absolute inset-0 bg-black/60 flex items-center justify-center hidden">
                 <div class="text-center">
                   <div class="spinner spinner-light !w-8 !h-8 !border-[3px] mx-auto"></div>
-                  <p class="text-white text-sm mt-3">Scanning face...</p>
+                  <p class="text-white text-sm mt-3 font-medium">Scanning face...</p>
                 </div>
               </div>
             </div>
-            <div class="flex items-center justify-center gap-4 mt-5">
-              <button id="btn-scan" class="px-6 py-2.5 bg-ncst-navy text-white rounded text-sm font-medium hover:bg-ncst-navy-light transition-colors disabled:opacity-40 disabled:cursor-not-allowed">Scan Face</button>
+            <div class="flex items-center justify-center gap-4 mt-6">
+              <button id="btn-scan" class="px-6 py-2.5 bg-ncst-navy text-white rounded-lg text-sm font-semibold hover:bg-ncst-navy-light transition-all shadow-md hover:shadow-lg disabled:opacity-40 disabled:cursor-not-allowed">Scan Face</button>
               <label class="flex items-center gap-2 cursor-pointer select-none" id="auto-toggle-label">
-                <span class="text-sm text-slate-600">Auto-scan</span>
+                <span class="text-sm font-medium text-slate-600">Auto-scan</span>
                 <div class="toggle-track" id="auto-track"><div class="toggle-thumb"></div></div>
               </label>
             </div>
@@ -702,16 +698,61 @@
         c.width = video.videoWidth || 640;
         c.height = video.videoHeight || 480;
         c.getContext('2d').drawImage(video, 0, 0);
+        
+        var captureTimeout = null;
+        var timedOut = false;
+        
         try {
-          var blob = await new Promise(function(resolve) {
+          // Add timeout to prevent infinite loading
+          var timeoutPromise = new Promise(function(resolve) {
+            captureTimeout = setTimeout(function() {
+              timedOut = true;
+              resolve(null);
+            }, 15000); // 15 second timeout
+          });
+          
+          var blobPromise = new Promise(function(resolve) {
             c.toBlob(function(b) { resolve(b); }, 'image/jpeg', 0.85);
           });
-          if (!blob) throw new Error('Failed to encode frame');
+          
+          var blob = await Promise.race([blobPromise, timeoutPromise]);
+          
+          if (timedOut || !blob) {
+            clearTimeout(captureTimeout);
+            throw new Error('Scan timed out. Please try again.');
+          }
+          
           var fd = new FormData();
           fd.append('device_id', 'terminal-01');
           fd.append('image', blob, 'scan.jpg');
-          var res = await fetch(API_BASE + '/verify', { method: 'POST', body: fd });
-          var data = res.headers.get('content-type')?.includes('application/json') ? await res.json() : null;
+          
+          // Add network timeout
+          var networkTimeout = null;
+          var networkTimedOut = false;
+          
+          var fetchPromise = fetch(API_BASE + '/verify', { method: 'POST', body: fd });
+          var timeoutPromise2 = new Promise(function(resolve) {
+            networkTimeout = setTimeout(function() {
+              networkTimedOut = true;
+              resolve(new Response(null, { status: 408, statusText: 'Request Timeout' }));
+            }, 20000); // 20 second network timeout
+          });
+          
+          var res = await Promise.race([fetchPromise, timeoutPromise2]);
+          clearTimeout(networkTimeout);
+          
+          if (networkTimedOut) {
+            throw new Error('Network request timed out. Please check your connection and try again.');
+          }
+          
+          var data = null;
+          try {
+            data = res.headers.get('content-type')?.includes('application/json') ? await res.json() : null;
+          } catch (jsonErr) {
+            console.log('[Scanner] Failed to parse JSON response');
+            data = null;
+          }
+          
           if (!res.ok) {
             clearFaceBoxes();
             console.log('[Scanner] Error: HTTP ' + res.status + ' - ' + (data?.detail || 'unknown'));
@@ -730,8 +771,10 @@
         } catch (err) {
           clearFaceBoxes();
           console.log('[Scanner] Error encountered: ' + err.message);
-          if (!autoScan) showErrorResult({ message: err.message });
+          if (!autoScan) showErrorResult({ message: err.message || 'An error occurred during scanning' });
           scheduleNextScan(SCAN_ERROR_DELAY);
+        } finally {
+          if (captureTimeout) clearTimeout(captureTimeout);
         }
         isProcessing = false;
         scanning = false;
@@ -809,11 +852,14 @@
       }
 
       var startCamHandler = async function() {
+        console.log('[Terminal] Start camera clicked');
         try {
           if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
             throw new Error('getUserMedia not supported');
           }
+          console.log('[Terminal] Requesting camera access...');
           stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480, facingMode: 'user' } });
+          console.log('[Terminal] Camera access granted');
           __activeStream = stream;
           video.srcObject = stream;
           video.classList.remove('hidden');
@@ -821,7 +867,9 @@
           scanBtn.disabled = false;
           bracket.style.display = 'block';
           refreshStatus();
+          console.log('[Terminal] Camera started successfully');
         } catch (err) {
+          console.error('[Terminal] Camera error:', err);
           var msg = !window.isSecureContext
             ? 'Webcam access blocked: insecure context. Please use HTTPS or localhost.'
             : err.name === 'NotAllowedError'
@@ -838,7 +886,10 @@
       };
       document.getElementById('btn-start-cam')?.addEventListener('click', startCamHandler);
 
-      scanBtn.addEventListener('click', doCapture);
+      scanBtn.addEventListener('click', async () => {
+        console.log('[Terminal] Scan button clicked');
+        await doCapture();
+      });
 
       autoLabel?.addEventListener('click', function(e) {
         e.preventDefault();
@@ -1841,11 +1892,17 @@
       return `
 <div class="space-y-4">
   <div class="flex items-center justify-between">
-    <p class="text-sm text-slate-500"><span id="att-total-label">Loading\u2026</span></p>
-    <button id="btn-refresh-att" class="flex items-center gap-1.5 px-3 py-1.5 border border-slate-300 rounded text-sm text-slate-600 hover:bg-slate-50 transition-colors">
-      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-      Refresh
-    </button>
+    <p class="text-sm text-slate-500"><span id="att-total-label">Loading…</span></p>
+    <div class="flex items-center gap-2">
+      <button id="btn-archive-att" class="flex items-center gap-1.5 px-3 py-1.5 border border-slate-300 rounded text-sm text-slate-600 hover:bg-slate-50 transition-colors">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 01-2-2V3a2 2 0 012-2h14a2 2 0 012 2v3a2 2 0 01-2 2M5 8a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-3a2 2 0 00-2-2H5z"/></svg>
+        Archive History
+      </button>
+      <button id="btn-refresh-att" class="flex items-center gap-1.5 px-3 py-1.5 border border-slate-300 rounded text-sm text-slate-600 hover:bg-slate-50 transition-colors">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+        Refresh
+      </button>
+    </div>
   </div>
   <div class="border border-slate-200 rounded bg-white overflow-hidden">
     <table class="w-full text-sm">
@@ -2299,16 +2356,61 @@
         c.width = video.videoWidth || 640;
         c.height = video.videoHeight || 480;
         c.getContext('2d').drawImage(video, 0, 0);
+        
+        var captureTimeout = null;
+        var timedOut = false;
+        
         try {
-          var blob = await new Promise(function(resolve) {
+          // Add timeout to prevent infinite loading
+          var timeoutPromise = new Promise(function(resolve) {
+            captureTimeout = setTimeout(function() {
+              timedOut = true;
+              resolve(null);
+            }, 15000); // 15 second timeout
+          });
+          
+          var blobPromise = new Promise(function(resolve) {
             c.toBlob(function(b) { resolve(b); }, 'image/jpeg', 0.85);
           });
-          if (!blob) throw new Error('Failed to encode frame');
+          
+          var blob = await Promise.race([blobPromise, timeoutPromise]);
+          
+          if (timedOut || !blob) {
+            clearTimeout(captureTimeout);
+            throw new Error('Scan timed out. Please try again.');
+          }
+          
           var fd = new FormData();
           fd.append('device_id', 'dash-scanner-01');
           fd.append('image', blob, 'scan.jpg');
-          var res = await fetch(API_BASE + '/verify', { method: 'POST', body: fd });
-          var data = res.headers.get('content-type')?.includes('application/json') ? await res.json() : null;
+          
+          // Add network timeout
+          var networkTimeout = null;
+          var networkTimedOut = false;
+          
+          var fetchPromise = fetch(API_BASE + '/verify', { method: 'POST', body: fd });
+          var timeoutPromise2 = new Promise(function(resolve) {
+            networkTimeout = setTimeout(function() {
+              networkTimedOut = true;
+              resolve(new Response(null, { status: 408, statusText: 'Request Timeout' }));
+            }, 20000); // 20 second network timeout
+          });
+          
+          var res = await Promise.race([fetchPromise, timeoutPromise2]);
+          clearTimeout(networkTimeout);
+          
+          if (networkTimedOut) {
+            throw new Error('Network request timed out. Please check your connection and try again.');
+          }
+          
+          var data = null;
+          try {
+            data = res.headers.get('content-type')?.includes('application/json') ? await res.json() : null;
+          } catch (jsonErr) {
+            console.log('[DashScanner] Failed to parse JSON response');
+            data = null;
+          }
+          
           if (!res.ok) {
             dashClearFaceBoxes();
             console.log('[DashScanner] Error: HTTP ' + res.status + ' - ' + (data?.detail || 'unknown'));
@@ -2327,8 +2429,10 @@
         } catch (err) {
           dashClearFaceBoxes();
           console.log('[DashScanner] Error encountered: ' + err.message);
-          if (!_dashAutoScan) dashPushResult({ message: err.message }, true);
+          if (!_dashAutoScan) dashPushResult({ message: err.message || 'An error occurred during scanning' }, true);
           dashScheduleNext(DASH_SCAN_ERROR_DELAY);
+        } finally {
+          if (captureTimeout) clearTimeout(captureTimeout);
         }
         dashIsProcessing = false;
         _dashScanning = false;
@@ -2555,8 +2659,19 @@
         try { await api('/auth/logout', { method: 'POST' }); } catch {}
         State.clear();
         sessionStorage.clear();
-        history.pushState(null, '', location.href);
-        showToast('Signed out', 'info');
+        localStorage.clear();
+        if (typeof window !== 'undefined') {
+          const cookies = document.cookie.split(';');
+          cookies.forEach(cookie => {
+            const eqPos = cookie.indexOf('=');
+            const name = eqPos > -1 ? cookie.substr(0, eqPos).trim() : cookie.trim();
+            if (name) {
+              document.cookie = name + '=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/';
+              document.cookie = name + '=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;domain=' + window.location.hostname;
+            }
+          });
+        }
+        history.replaceState(null, '', location.href);
         window.location.replace('login.html');
       });
 
@@ -2585,6 +2700,20 @@
         case 'attendance':
           loadAttendance(1);
           document.getElementById('btn-refresh-att')?.addEventListener('click', () => loadAttendance(_attPage));
+          document.getElementById('btn-archive-att')?.addEventListener('click', async () => {
+            if (!confirm('Archive all attendance history? This will move records older than 30 days to the archive.')) return;
+            const btn = document.getElementById('btn-archive-att');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner !w-3 !h-3 !border-[1.5px] align-middle"></span>';
+            try {
+              await api('/admin/logs/archive', { method: 'POST' });
+              showToast('History archived successfully', 'success');
+              loadAttendance(_attPage);
+            } catch (err) {
+              if (err.message !== 'Session expired') showToast(err.message, 'error');
+              btn.disabled = false;
+            }
+          });
           break;
         case 'audit':
           loadAuditLogs(1);

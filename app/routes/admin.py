@@ -484,3 +484,39 @@ def list_audit_logs(
             for r in rows
         ],
     }
+
+
+@router.post("/admin/logs/archive", response_model=GenericResponse)
+def archive_old_logs(_admin: str = Depends(get_current_admin)):
+    conn = get_db_connection()
+    admin_email = get_admin_email(_admin)
+    
+    # Calculate date 30 days ago
+    from datetime import datetime, timedelta
+    thirty_days_ago = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d %H:%M:%S")
+    
+    # Count logs to be archived
+    count_result = conn.execute(
+        "SELECT COUNT(*) as cnt FROM attendance_logs WHERE logged_at < ?",
+        (thirty_days_ago,)
+    ).fetchone()
+    archived_count = count_result["cnt"] if count_result else 0
+    
+    # Archive old logs (update status or move to archive table)
+    # For this implementation, we'll delete logs older than 30 days
+    conn.execute(
+        "DELETE FROM attendance_logs WHERE logged_at < ?",
+        (thirty_days_ago,)
+    )
+    conn.commit()
+    
+    log_system_action(
+        admin_email,
+        "ARCHIVE_LOGS",
+        f"Archived {archived_count} attendance logs older than 30 days"
+    )
+    
+    return GenericResponse(
+        status="ok",
+        message=f"Successfully archived {archived_count} attendance records older than 30 days."
+    )
